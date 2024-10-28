@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>옷 수정 페이지</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0eafc, #cfdef3);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            padding: 20px;
+        }
+        .sidebar {
+            width: 30%;
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            background: #f9f9f9;
+            color: #007BFF;
+        }
+        .sidebar h3 {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 15px;
+        }
+        .sidebar p {
+            font-size: 1em;
+            line-height: 1.5;
+            color: #666;
+        }
+        .main-content {
+            width: 70%;
+            padding: 20px;
+            text-align: center;
+        }
+        header {
+            margin-bottom: 20px;
+        }
+        header h1 {
+            margin: 0;
+            color: #007BFF;
+            font-size: 2.2em;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 123, 255, 0.3);
+        }
+        .cloth-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .cloth-info {
+            width: 40%;
+            text-align: left;
+            color: #333;
+        }
+        .cloth-info label {
+            display: block;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #555;
+        }
+        .cloth-info input, .cloth-info select {
+            width: 100%;
+            padding: 8px;
+            font-size: 1em;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .cloth-image {
+            width: 40%;
+            text-align: center;
+        }
+        .cloth-image img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+        }
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-evenly;
+        }
+        .buttons button {
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        .buttons button:hover {
+            background-color: #0056b3;
+        }
+        .delete-button {
+            background-color: #DC3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h3>옷 정보 수정</h3>
+            <p>옷 특성과 사진을 수정하세요.</p>
+        </div>
+        <div class="main-content">
+            <header>
+                <h1 id="cloth-nickname">별칭이 표시됩니다</h1>
+            </header>
+
+            <div class="cloth-details">
+                <div class="cloth-info">
+                    <label>카테고리:</label>
+                    <select id="cloth-category" onchange="updateThicknessOptions()">
+                        <option value="outer">아우터</option>
+                        <option value="top">상의</option>
+                        <option value="bottom">하의</option>
+                        <option value="shoes">신발</option>
+                    </select>
+
+                    <label>두께:</label>
+                    <select id="cloth-thickness"></select>
+
+                    <label>별칭:</label>
+                    <input id="cloth-nickname-input" type="text">
+                </div>
+                <div class="cloth-image">
+                    <img id="cloth-photo" src="placeholder.jpg" alt="옷 사진">
+                    <!-- <input type="file" id="photo-upload"> -->
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button onclick="saveCloth()">옷 저장</button>
+                <button class="delete-button" onclick="deleteCloth()">옷 삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        get_url = '{{url_for('get_shoes_cloth')}}'
+        up_url = '{{url_for('update_cloth')}}'
+        del_url = '{{url_for('delete_cloth')}}'
+
+        function updateThicknessOptions() {
+            const category = document.getElementById('cloth-category').value;
+            const thicknessSelect = document.getElementById('cloth-thickness');
+            thicknessSelect.innerHTML = '';
+            let options = [];
+            if (category === 'outer' || category === 'top') {
+                options = ['두께를 선택하시오', '매우 두꺼움', '두꺼움', '보통', '얇음', '매우 얇음'];
+            } else if (category === 'bottom') {
+                options = ['긴바지', '반바지'];
+            } else if (category === 'shoes') {
+                options = ['운동화', '구두', '슬리퍼', '레인부츠'];
+            }
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                thicknessSelect.appendChild(opt);
+            });
+        }
+
+        const clothId = {{item_id}};
+        function loadClothData() {
+            fetch(`${get_url}?index=${clothId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cloth-nickname').innerText = data.nickname;
+                    document.getElementById('cloth-category').value = data.category;
+                    document.getElementById('cloth-thickness').value = data.thickness;
+                    document.getElementById('cloth-nickname-input').value = data.nickname;
+                    // 전체 경로에서 /static/uploads/ 이후의 경로만 남기는 코드
+                    const fullPath = data.photo_path;
+                    // '/MYWEATHERLOOK/static/uploads/'를 제거하고 남은 경로 부분만 가져옵니다.
+                    const filePath = fullPath.replace('/MYWEATHERLOOK/static/uploads', '');
+                    // 최종 경로 설정
+                    document.getElementById('cloth-photo').src = `/static/uploads${filePath}`;                    
+                    db_id = data.id;
+                    updateThicknessOptions();
+                    document.getElementById('cloth-thickness').value = data.thickness;
+                });
+        }
+
+        function saveCloth() {
+            const category = document.getElementById('cloth-category').value;
+            const thickness = document.getElementById('cloth-thickness').value;
+            const nickname = document.getElementById('cloth-nickname-input').value;
+            // const photoFile = document.getElementById('photo-upload').files[0];
+            
+            const formData = new FormData();
+            formData.append('category', category);
+            formData.append('thickness', thickness);
+            formData.append('nickname', nickname);
+            // if (photoFile) formData.append('photo', photoFile);
+
+            fetch(`${up_url}?id=${db_id}`, {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    alert("옷 정보가 저장되었습니다!");
+                    window.location.href = '{{url_for('home')}}';
+                }
+            });
+        }
+
+        function deleteCloth() {
+            fetch(`${del_url}?id=${db_id}`, { method: 'DELETE' })
+                .then(response => {
+                    if (response.ok) {
+                        alert("옷이 삭제되었습니다!");
+                        window.location.href = '{{url_for('home')}}';
+                    }
+                });
+        }
+
+        window.onload = loadClothData;
+    </script>
+</body>
+</html>
