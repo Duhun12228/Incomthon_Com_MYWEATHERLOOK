@@ -7,6 +7,12 @@ from flask_sqlalchemy import SQLAlchemy
 import os
 import base64
 import math
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sqlalchemy import func
+import pandas as pd
+import random
+from sqlalchemy import case
 
 app = Flask(__name__, template_folder='/MYWEATHERLOOK/templates',static_folder='/MYWEATHERLOOK/static')
 CORS(app)  # 모든 도메인에 대해 CORS 허용
@@ -30,6 +36,71 @@ class Cloth(db.Model):
 # 데이터베이스 생성
 with app.app_context():
     db.create_all()
+
+###머신러닝 모델 설정
+# 설정된 날씨 및 의류 특성 옵션
+temperature_ranges = [(-10, 0), (0, 10), (10, 20), (20, 30), (30, 40)]  # 예: 매우 춥고, 추운, 보통, 따뜻한, 매우 더운 날씨
+humidity_levels = [10, 30, 50, 70, 90]
+wind_speeds = [0, 2, 5, 8, 12]
+rainfall_levels = [0, 5, 15, 30, 50]  # 강수량
+
+# 의류 조합 옵션
+outerwear_options = ['매우 두꺼움', '두꺼움', '보통', '얇음', '매우 얇음', 'None']
+top_options = ['매우 두꺼움', '두꺼움', '보통', '얇음', '매우 얇음']
+bottom_options = ['긴바지', '반바지']
+shoes_options = ['운동화', '구두', '슬리퍼', '레인부츠']
+
+# 학습 데이터셋 생성 함수
+def generate_data(num_samples=1000):
+    data = []
+    for _ in range(num_samples):
+        # 랜덤 날씨 생성
+        temp = random.uniform(*random.choice(temperature_ranges))
+        humidity = random.choice(humidity_levels)
+        wind = random.choice(wind_speeds)
+        rain = random.choice(rainfall_levels)
+
+        # 조건에 따른 의류 조합 설정
+        if temp < 15 or rain > 20:  # 추운 날 또는 비가 많이 오는 날
+            outerwear = random.choice(outerwear_options[:3])  # 두꺼운 아우터
+            shoes = '레인부츠' if rain > 20 else random.choice(shoes_options)
+        else:
+            outerwear = 'None'  # 아우터 없음
+            shoes = random.choice(['운동화', '구두', '슬리퍼'])
+
+        top = random.choice(top_options[:3] if temp < 15 else top_options[2:])  # 기온에 따른 상의 두께
+        bottom = '긴바지' if temp < 20 else '반바지'  # 기온에 따른 하의 길이
+
+        # 데이터 추가
+        data.append([temp, humidity, wind, rain, outerwear, top, bottom, shoes])
+
+    columns = ['온도', '습도', '풍속', '강수량', 'outer', 'top', 'bottom', 'shoes']
+    return pd.DataFrame(data, columns=columns)
+
+# 학습 데이터셋 생성
+df = generate_data()
+print(df.head())  # 데이터셋 확인
+
+
+# 학습 데이터 준비
+training_data = df
+X = training_data[['온도', '습도', '풍속', '강수량']]
+y_outer = training_data['outer']
+y_top = training_data['top']
+y_bottom = training_data['bottom']
+y_shoes = training_data['shoes']
+
+# 랜덤 포레스트 모델 학습
+model_outer = RandomForestClassifier()
+model_top = RandomForestClassifier()
+model_bottom = RandomForestClassifier()
+model_shoes = RandomForestClassifier()
+
+model_outer.fit(X, y_outer)
+model_top.fit(X, y_top)
+model_bottom.fit(X, y_bottom)
+model_shoes.fit(X, y_shoes)
+#-------------------------------------------------------------------------
 
 ##격좌좌표 변환 
 NX = 149            ## X축 격자점 수
@@ -176,8 +247,75 @@ def render_edit_shoes():
     return render_template('edit_shoes.html', item_id=shoes_id)
 
 #----------------------------------------------------
+# 사용자의 날씨 데이터에 대한 옷 추천 함수
+def recommend_outfit(user_weather_data):
+    temp, humidity, wind_speed, precipitation = user_weather_data
+
+    outer_pred = model_outer.predict([[temp, humidity, wind_speed, precipitation]])[0]
+    top_pred = model_top.predict([[temp, humidity, wind_speed, precipitation]])[0]
+    bottom_pred = model_bottom.predict([[temp, humidity, wind_speed, precipitation]])[0]
+    shoes_pred = model_shoes.predict([[temp, humidity, wind_speed, precipitation]])[0]
+
+    return {'outer': outer_pred, 'top': top_pred, 'bottom': bottom_pred, 'shoes': shoes_pred}
+
+
+# 데이터베이스에서 사용자 소유 옷과 추천 옷을 매칭하고 비슷한 조건의 옷을 찾는 함수
+def match_recommendation(user_weather_data):
+    recommended_outfit = recommend_outfit(user_weather_data)
+
+    matched_clothes = {}
+    for category, recommended_item in recommended_outfit.items():
+        if recommended_item == 'None':
+            matched_clothes[category] = '착용 안함'
+            continue
+
+        # 데이터베이스에서 추천된 조건과 일치하는 옷 검색
+        matched_cloth = Cloth.query.filter_by(category=category, thickness=recommended_item).first()
+
+        # 만약 일치하는 옷이 없으면, 가장 가까운 조건의 옷을 검색
+        if not matched_cloth:
+            matched_cloth = find_closest_cloth(category, recommended_item)
+        # 결과 저장
+        matched_clothes[category] = matched_cloth.nickname if matched_cloth else f"{recommended_item}에 맞는 옷이 없습니다."
+    print(matched_clothes)
+    return matched_clothes
+
+
+# 유사 조건의 옷을 찾기 위한 함수 (하의와 신발은 아무 옷 추천)
+def find_closest_cloth(category, target_attribute):
+    if category in ['outer', 'top']:
+        # 두께에 따른 유사 조건 검색
+        thickness_levels = {
+            '매우 두꺼움': 4, '두꺼움': 3, '보통': 2, '얇음': 1, '매우 얇음': 0
+        }
+        target_value = thickness_levels.get(target_attribute, 2)  # '보통'을 기본 값으로 설정
+        
+        # 두께 값 변환을 위해 case문 사용
+        thickness_case = case(
+            *[(Cloth.thickness == key, value) for key, value in thickness_levels.items()],
+            else_=2  # 기본값을 '보통'으로 설정
+        )
+
+        closest_cloth = (
+            Cloth.query \
+            .filter(Cloth.category == category) \
+            .order_by(func.abs(thickness_case - target_value))\
+            .first()
+        )
+    elif category == 'bottom':
+        # 아무 하의 추천
+        closest_cloth = Cloth.query.filter(Cloth.category == category).first()
+    elif category == 'shoes':
+        # 아무 신발 추천
+        closest_cloth = Cloth.query.filter(Cloth.category == category).first()
+    else:
+        closest_cloth = None
+
+    return closest_cloth
+
 
 @app.route('/weather', methods=['GET'])
+
 def get_weather():
         # 현재 시간 설정
     now = datetime.now()
@@ -254,12 +392,13 @@ def get_weather():
     A3 = desired_fcst_data.get('WSD', None) if desired_fcst_data else None  # 풍속   
     A4 = desired_fcst_data.get('RN1', None) if desired_fcst_data else None  # 강수량
     
-     #여기서 옷 추천 알고리즘 필요.
-    outer = "가벼운 외투" if A1 < 15 else "티셔츠"
-    top = "긴팔 티셔츠" if A1 < 20 else "반팔 티셔츠"
-    bottom = "긴바지" if A1 < 15 else "반바지"
-    shoes = "운동화" if A1 < 25 else "샌들"
-
+    user_weather_data = [A1,A2,A3,A4 if A4 != '강수없음' else 0]
+    matched_clothes = match_recommendation(user_weather_data)
+    outer = matched_clothes.get('outer', '기본값')  # 기본값은 항목이 없을 때 반환될 값입니다.
+    top = matched_clothes.get('top', '기본값')
+    bottom = matched_clothes.get('bottom', '기본값')
+    shoes = matched_clothes.get('shoes', '기본값')
+    print(outer,top,bottom,shoes)
     # JSON 응답
     return jsonify({
         'A1': A1,
@@ -272,7 +411,6 @@ def get_weather():
         'shoes': shoes        
     }
     )
-
 
 
 #새로운 옷 추가 
