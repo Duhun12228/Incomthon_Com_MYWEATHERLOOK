@@ -153,7 +153,7 @@ def convert_grid(lat, lon):
     return x, y
 
 
-serviceKey = "exBFq7a26F5gRk9CcioJM5kGSnfcxKS%2B%2FOc0gIbbq4HlXFtQw6GSl3raqQT3QqYE1sZqMjGg6hh11JBhX4y59g%3D%3D"  # 본인의 서비스 키 입력
+serviceKey = ""  # 본인의 서비스 키 입력
 
 #----------------------------------------------------
 
