@@ -176,7 +176,7 @@
 
             <div class="buttons">
                 <button id="exit-button" onclick="window.location.href='{{ url_for('home') }}'">옷장 나가기</button>
-                <button id="edit-button" onclick="window.location.href='{{ url_for('edit_top_page') }}'">옷 수정</button>
+                <button id="edit-button" onclick="window.location.href='{{ url_for('edit_outer_page') }}'">옷 수정</button>
             </div>
 
             <div id="message"></div> <!-- 마지막 옷 알림 -->
@@ -185,7 +185,7 @@
 
     <script>
         let currentIndex = 0; // 현재 인덱스
-        url = '{{url_for('get_top_cloth')}}'
+        url = '{{url_for('get_outer_cloth')}}'
         function fetchClothData(index) {
             fetch(`${url}?index=${index}`)
                 .then(response => response.json())
@@ -195,12 +195,9 @@
                         document.getElementById('cloth-nickname1').innerText = data.nickname;
                         document.getElementById('cloth-category').innerText = data.category;
                         document.getElementById('cloth-thickness').innerText = data.thickness;
-                        // 전체 경로에서 /static/uploads/ 이후의 경로만 남기는 코드
-                        const fullPath = data.photo_path;
-                        // '/MYWEATHERLOOK/static/uploads/'를 제거하고 남은 경로 부분만 가져옵니다.
-                        const filePath = fullPath.replace('/MYWEATHERLOOK/static/uploads', '');
-                        // 최종 경로 설정
-                        document.getElementById('cloth-photo').src = `/static/uploads${filePath}`;
+                        const filename = (data.photo_path || '').split('/').pop();
+                        document.getElementById('cloth-photo').src = '/static/uploads/' + filename;
+
 
                         totalCloths = data.total
 
@@ -210,7 +207,6 @@
                 })
                 .catch(error => console.error('Error fetching cloth data:', error));
         }
-
 
         document.getElementById('prev-button').onclick = () => {
             if (currentIndex == 0){
@@ -238,30 +234,16 @@
             window.location.href = '{{ url_for('home') }}'; // 메인 페이지로 이동
         };
 
-        const editUrl = "{{ url_for('edit_top_page') }}";
+            const editUrl = "{{ url_for('edit_outer_page') }}";
 
-        // goToEditPage 함수에서 POST 요청으로 전송
-        function goToEditPage(index) {
-            fetch(editUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ id: index })
-            })
-            .then(response => {
-                if (response.redirected) {
-                } else {
-                    console.error('Error with redirection');
-                }
-            })
-            .catch(error => console.error('Error with POST request:', error));
-            window.location.href = '{{url_for('render_edit_top')}}'; 
-        }
+            // goToEditPage 함수에서 POST 요청으로 전송
+            function goToEditPage(index) {
+                window.location.href = `${editUrl}?id=${index}`; // 서버에서 리디렉션 응답이 온 경우
+            }
 
-        document.getElementById('edit-button').onclick = () => {
-            goToEditPage(currentIndex); // currentIndex 값을 사용해 goToEditPage 호출
-        };
+            document.getElementById('edit-button').onclick = () => {
+                goToEditPage(currentIndex); // currentIndex 값을 사용해 goToEditPage 호출
+            };
 
         // 페이지 로드 시 데이터 가져오기
         window.onload = () => {

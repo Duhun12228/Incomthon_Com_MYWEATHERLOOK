@@ -158,11 +158,11 @@
     </div>
 
     <script>
-        get_url = '{{url_for('get_top_cloth')}}'
+        get_url = '{{url_for('get_bottom_cloth')}}'
         up_url = '{{url_for('update_cloth')}}'
         del_url = '{{url_for('delete_cloth')}}'
 
-         function updateThicknessOptions() {
+        function updateThicknessOptions() {
             const category = document.getElementById('cloth-category').value;
             const thicknessSelect = document.getElementById('cloth-thickness');
             thicknessSelect.innerHTML = '';
@@ -191,12 +191,8 @@
                     document.getElementById('cloth-category').value = data.category;
                     document.getElementById('cloth-thickness').value = data.thickness;
                     document.getElementById('cloth-nickname-input').value = data.nickname;
-                    // 전체 경로에서 /static/uploads/ 이후의 경로만 남기는 코드
-                    const fullPath = data.photo_path;
-                    // '/MYWEATHERLOOK/static/uploads/'를 제거하고 남은 경로 부분만 가져옵니다.
-                    const filePath = fullPath.replace('/MYWEATHERLOOK/static/uploads', '');
-                    // 최종 경로 설정
-                    document.getElementById('cloth-photo').src = `/static/uploads${filePath}`;
+                    const filename = (data.photo_path || '').split('/').pop();
+                    document.getElementById('cloth-photo').src = '/static/uploads/' + filename;                    
                     db_id = data.id;
                     updateThicknessOptions();
                     document.getElementById('cloth-thickness').value = data.thickness;

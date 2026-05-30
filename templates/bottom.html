@@ -195,12 +195,8 @@
                         document.getElementById('cloth-nickname1').innerText = data.nickname;
                         document.getElementById('cloth-category').innerText = data.category;
                         document.getElementById('cloth-thickness').innerText = data.thickness;
-                        // 전체 경로에서 /static/uploads/ 이후의 경로만 남기는 코드
-                        const fullPath = data.photo_path;
-                        // '/MYWEATHERLOOK/static/uploads/'를 제거하고 남은 경로 부분만 가져옵니다.
-                        const filePath = fullPath.replace('/MYWEATHERLOOK/static/uploads', '');
-                        // 최종 경로 설정
-                        document.getElementById('cloth-photo').src = `/static/uploads${filePath}`;
+                        const filename = (data.photo_path || '').split('/').pop();
+                        document.getElementById('cloth-photo').src = '/static/uploads/' + filename;
                         totalCloths = data.total
                     } else {
                         // document.getElementById('message').innerText = "더 이상 옷이 없습니다.";
@@ -237,27 +233,8 @@
 
         const editUrl = "{{ url_for('edit_bottom_page') }}";
 
-        // goToEditPage 함수에서 POST 요청으로 전송
-        function goToEditPage(index) {
-            fetch(editUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ id: index })
-            })
-            .then(response => {
-                if (response.redirected) {
-                } else {
-                    console.error('Error with redirection');
-                }
-            })
-            .catch(error => console.error('Error with POST request:', error));
-            window.location.href = '{{url_for('render_edit_bottom')}}'; 
-        }
-
         document.getElementById('edit-button').onclick = () => {
-            goToEditPage(currentIndex); // currentIndex 값을 사용해 goToEditPage 호출
+            window.location.href = `${editUrl}?id=${currentIndex}`;
         };
 
 
