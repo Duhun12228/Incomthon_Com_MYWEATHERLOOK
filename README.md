@@ -36,10 +36,18 @@
 
 ## 시작하기
 
-### 1. 의존성 설치
+### 1. 가상환경 생성 및 의존성 설치
 
 ```bash
-pip install flask flask-cors flask-sqlalchemy scikit-learn pandas python-dotenv
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
 ### 2. 환경변수 설정
@@ -55,7 +63,6 @@ WEATHER_API_KEY=발급받은_서비스키
 ### 3. 실행
 
 ```bash
-cd MYWEATHERLOOK
 python weather_api.py
 ```
 
